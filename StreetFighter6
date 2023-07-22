@@ -1,0 +1,209 @@
+# ======================================================================================
+# Readme
+# 動作環境 Raspberry Pi 4 ModelB
+# 必要モジュール selenium / chromiumdriver / BeautifulSoup4 / 
+# スト６版
+# ======================================================================================
+# 2023/06/12 新規作成
+# ==============================================================================
+# ユーザの環境設定 (要設定)
+# ==============================================================================
+# チェックしたいユーザ(大文字小文字正確に) 例 ["user1", "user2", "user3"]
+CheckUser = ["あゆてっと", "shiliyu","kurotaro", "KuzuhatheNoob", "イブラヒム", "りりむ姫",
+             "siina", "渋谷ハジメ", "momo","やしろくん","KandA401",
+             "さろめですわ", "nyaraka", "sasa", "王覇山です", "Igarashiiiii",
+             "ABOTOKO", "Kanae","potito","gami","sani","Miraijin","PIMACH4N",
+             "Oliver24","るいきゃみ","岩下佑樹","midori"]
+
+# Discord送信先 ユーザ(大文字小文字正確に) 例 ["user1", "user2", "user3"]
+Discord = ["あゆてっと", "shiliyu","kurotaro" ]
+Discord2434 = ["KuzuhatheNoob", "イブラヒム", "りりむ姫", "siina", "渋谷ハジメ", 
+               "momo","やしろくん","KandA401", "さろめですわ", "nyaraka",
+               "sasa", "王覇山です", "Igarashiiiii", "ABOTOKO", "Kanae",
+               "potito","gami","sani","Miraijin","PIMACH4N","Oliver24",
+               "るいきゃみ","岩下佑樹","midori"]
+
+# ChromiumのProfile Path
+# アドレスバーに「chrome://version/」と入力して「Profile Path」と書かれているところをコピペ
+profile_path = '/tmp/.org.chromium.Chromium.wM5OoY/Default'
+
+# WebHookURLを設定
+WebHookUrl = "https://discord.com/api/webhooks/809362492735094794/AeZ0_kbZOOJwkVxlOC1Sm7zg-shMTFta9rL_EwWuUDFKWA2lCVDVDe19Zf1ApPDmaT43"
+WebHookUrl2434 = "https://discord.com/api/webhooks/854333398901981185/UlkYLgxgE3-bclVINNXaIUOQo-xVgoFAbuoYTu7Lmm4ZObfd64OykJ6sU4EMAgFJi6TC"
+#WebHookUrl2434 = "https://discord.com/api/webhooks/1117815162112594030/uzCtcgMln9ImMkJmrtZdIbSe-cRWmLflABxC9vp-kjMXVV-bQEZoWq3p89MgqlSDHt80"
+
+# WebHookでメッセージ送信するときのユーザ名
+WebHookUser = "通知BOTちゃん"
+
+# チェック間隔(秒) ※早すぎるとサーバに迷惑がかかるので注意
+TimerInterval = 300
+
+# ==============================================================================
+# ユーザの環境設定終了
+# ==============================================================================
+
+# ===============
+# サーバ環境設定
+# ===============
+# BUCKLERSページ
+BucklersUrl = "https://www.streetfighter.com/6/buckler/ja-jp"
+
+# フォロワーページ
+FollowerUrl = "https://www.streetfighter.com/6/buckler/ja-jp/fighterslist/follow"
+
+# ログインページ
+loginUrl = "https://www.streetfighter.com/6/buckler/ja-jp/auth/loginep?redirect_url=/"
+
+# =================
+# Discord送信処理
+# =================
+def SendDiscord(user,message):
+    import requests
+
+    # WebHookのURL
+    params = {"username": WebHookUser,"content": message}
+
+    #送信先判別
+    if (user in Discord):
+        # 送信！
+        requests.post(WebHookUrl,params)
+
+    if (user in Discord2434):
+        # 送信！
+        requests.post(WebHookUrl2434,params)    
+    
+# =======================
+# 状態保存とDiscord送信判定
+# =======================
+def StatusCheck(user,status):
+
+    # 現在のステータスがログアウトかチェック
+    if (status == "LOGOUT"):
+
+        # 前回ステータスがLOGOUT以外かチェック
+        if (mylist[user] == "ONLINE"):
+            # 通知処理
+            message = user + "さんがオフラインになりました。"
+            SendDiscord(user,message)
+                    
+        # 状態保存
+        mylist[user] = "OFFLINE"
+
+    else:
+        # 前回のステタスがOFFLINEかチェック
+        if (mylist[user] == "OFFLINE"):
+            # 通知処理
+            message = user + "さんがオンラインになりました。"
+            SendDiscord(user,message)
+
+        # 状態保存
+        mylist[user] = "ONLINE"
+
+# =======================
+# ページ解析処理MyList用
+# =======================
+def MyListPageAnalyzer(soup):
+
+    # HTML解析 BeautifulSoup使用
+    import requests
+    from bs4 import BeautifulSoup
+    #soup = BeautifulSoup(PageSource,"html.parser")
+
+    # タグで切り出し
+    import re
+
+    # ユーザ名一覧取得(何故か先頭にスペース入ってる)
+    users = soup.find_all('span',class_='list_name__99bxh')
+
+    # LPを取得
+    #lp = soup.find_all('li',class_='list_lp__5S1cX')
+    
+    # オンラインステータス取得
+    status = soup.find_all('p',class_='list_place__WMI0I')
+    
+    # ====================
+    # 取得したデータをループ
+    # ====================
+    i = 0
+    for item in users:
+        # 予め前スペース抜きのユーザ名を格納
+        checkuser = item.text.replace(" ","")
+
+        # ユーザ名がチェック対象にあるか判定
+        if (checkuser in mylist):
+            # ステータスチェックにかける -> Discord送信
+            StatusCheck(checkuser,status[i].text)
+
+        i = i+1
+    # ====================
+    # ループ終わり
+    # ====================
+
+
+# =====================
+# CFN MyListチェック処理
+# =====================
+def MylistCheck(browser):
+
+    # HTML解析 BeautifulSoup使用
+    import requests
+    from bs4 import BeautifulSoup
+
+    # フォロワーページを取得
+    browser.get(FollowerUrl)
+    PageSource = browser.page_source
+    
+    # 解析用にBeutifulSoupに変換
+    soup = BeautifulSoup(PageSource,"html.parser")
+
+    # 解析処理に渡す(MyList用)
+    MyListPageAnalyzer(soup)
+    
+    #nextページがあればクリック
+    while len(soup.find_all('li',class_='next disabled')) == 0:
+        browser.find_element_by_xpath("//li[@class='next ']").click()
+        PageSource = browser.page_source
+        soup = BeautifulSoup(PageSource,"html.parser")
+        MyListPageAnalyzer(soup)
+    
+    
+# =============================
+# メイン処理
+# =============================
+# チェック対象ユーザのディクショナリ作成
+mylist = {}
+for item in CheckUser:
+    mylist[item] = ""
+
+# ブラウザの準備
+# オプション：ブラウザのログイン情報を引き継ぐためユーザ設定
+# オプション：ブラウザの言語設定を日本語に
+import sys
+sys.path.append('/home/pi/.local/lib/python3.5/site-packages/')
+from selenium import webdriver
+option = webdriver.ChromeOptions()
+profile_path = '/tmp/.org.chromium.Chromium.sJGi5e/Default'
+option.add_argument('--user-data-dir=' + profile_path)
+option.add_experimental_option('prefs',{'intl.accept_languages':'ja-JP'})
+browser = webdriver.Chrome(executable_path="/usr/lib/chromium-browser/chromedriver",options=option)
+
+# MyList移動
+browser.get(loginUrl)
+
+# ここで手動ログインしろ
+from time import sleep
+sleep(100)
+
+# ==============================
+# タイマーループ(永遠)
+# ==============================
+while True:
+    try:
+        MylistCheck(browser)
+        sleep(TimerInterval)
+
+    except:
+        # 時間をおいてリトライ
+        sleep(TimerInterval)
+        
+# ==============================

@@ -1,0 +1,188 @@
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Support.UI;
+using System.Runtime.CompilerServices;
+using System.Xml;
+
+namespace SeleniumST6
+{
+    public class Program
+    {
+        static void Main(string[] args)
+        {
+
+            var userList = new List<String>() { "あゆてっと", "shiliyu","kurotaro","NKI-PS","chickenbo",
+                "KuzuhatheNoob", "イブラヒム", "りりむ姫","siina", "渋谷ハジメ", "momo","やしろくん",
+                "KandA401", "さろめですわ", "nyaraka", "sasa", "王覇山です", "Igarashiiiii","ABOTOKO",
+                "Kanae","potito","gami","sani","Miraijin","PIMACH4N","Oliver24","るいきゃみ","岩下佑樹",
+                "midori","rai_173" };
+
+            // メトロのDiscordに投げるリスト それ以外はにじさんじ
+            var discordList = new List<String>() { "あゆてっと", "shiliyu", "kurotaro", "NKI-PS", "chickenbo" };
+
+            var WebHookUrl = "https://discord.com/api/webhooks/809362492735094794/AeZ0_kbZOOJwkVxlOC1Sm7zg-shMTFta9rL_EwWuUDFKWA2lCVDVDe19Zf1ApPDmaT43";
+            var WebHookUrl2434 = "https://discord.com/api/webhooks/854333398901981185/UlkYLgxgE3-bclVINNXaIUOQo-xVgoFAbuoYTu7Lmm4ZObfd64OykJ6sU4EMAgFJi6TC";
+            var WebHookUrlErr = "https://discord.com/api/webhooks/1019777137936433232/YO0pAjilJKworZjzN3ziNi57pFUInsXL04lMMCdNQJLH9Fuo1pPcTzrKRFNtLowWgeyG";
+
+
+            var userID = "metesports15@gmail.com";
+            var passWD = "Moimoimomoi2434";
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////
+
+            // ユーザのオンラインステータス作成初期値OFFLINE
+            var userStatusDic = new Dictionary<String, String>();
+            foreach (var item in userList) {
+                userStatusDic.Add(item, string.Empty);
+            }
+
+            // ページソース関連
+            string pageSource = string.Empty;
+            var htmlDoc = new HtmlAgilityPack.HtmlDocument();
+
+            var nowStatus = string.Empty;
+            var dicStatus = string.Empty;
+            var ErrCnt = 0;
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////
+            ///
+            // ChromeDriverのパスを設定（ChromeDriverの実行可能ファイルへのパス）
+            string chromeDriverPath = @"C:\Program Files\chrome-win64\";
+
+            // ChromeDriverを初期化
+            ChromeOptions chromeOptions = new ChromeOptions();
+            chromeOptions.AddArgument("--start-maximized"); // ウィンドウを最大化
+            chromeOptions.AddArgument("--remote-allow-origins=*");
+
+            IWebDriver driver = new ChromeDriver(chromeDriverPath, chromeOptions);
+            IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+
+            // スト６のフォロー欄にアクセス
+            driver.Navigate().GoToUrl("https://www.streetfighter.com/6/buckler/ja-jp/auth/loginep?redirect_url=/fighterslist/follow");
+
+            System.Threading.Thread.Sleep(2000);
+
+            driver.FindElement(By.Id("1-email")).SendKeys(userID);
+            System.Threading.Thread.Sleep(1000);
+            driver.FindElement(By.Name("password")).SendKeys(passWD);
+            System.Threading.Thread.Sleep(1000);
+            driver.FindElement(By.Name("submit")).Click();
+            System.Threading.Thread.Sleep(40000);
+
+            //ループ
+            while (true)
+            {
+
+                try
+                {
+
+                    driver.Navigate().GoToUrl("https://www.streetfighter.com/6/buckler/ja-jp/fighterslist/follow");
+
+
+                    // ページソース取得
+                    pageSource = driver.PageSource;
+                    htmlDoc.LoadHtml(pageSource);
+
+                    // 次ページが無くなるまでループ
+                    while (true) {
+                        //画面外クリックできないのでスクロールする
+                        js.ExecuteScript("window.scrollTo(1625, 800);");
+
+                        System.Threading.Thread.Sleep(5000);
+
+                        // 名前一覧取得
+                        var users = htmlDoc.DocumentNode.SelectNodes("*//span[@class='list_name__99bxh']").Select(x => x.InnerHtml).ToList();
+                        // オンラインステータス
+                        var status = htmlDoc.DocumentNode.SelectNodes("*//p[@class='list_place__WMI0I']").Select(x => x.InnerHtml).ToList();
+
+                        // ユーザステータス判定
+                        for (int i = 0; i < users.Count; i++)
+                        {
+                            // 現在のステータスを取得(LOGOUT意外はONLINEに)
+                            nowStatus = status[i];
+                            if (nowStatus != "LOGOUT") { nowStatus = "ONLINE"; };
+
+                            // ディクショナリで保持してるステータスを取得
+                            dicStatus = userStatusDic[users[i]];
+
+                            // 状態に差異があるか確認(ディクショナリ側がString.Empty(初期値)の場合は送信無視)
+                            if (dicStatus != string.Empty && nowStatus != dicStatus)
+                            {
+                                // 送信先判定
+                                if (discordList.Contains(users[i]))
+                                {
+                                    // メトロ
+                                    SendDiscordOnline(users[i], nowStatus, WebHookUrl);
+                                }
+                                else
+                                {
+                                    // にじさんじ
+                                    SendDiscordOnline(users[i], nowStatus, WebHookUrl2434);
+                                }
+                            }
+                            userStatusDic[users[i]] = nowStatus;
+                        }
+
+                        // 次へのリンクが無効の場合終了
+                        var next = htmlDoc.DocumentNode.SelectNodes("*//li[@class='next disabled']");
+                        if (next != null) { break; }
+
+                        // 次へをクリック
+                        driver.FindElement(By.XPath("//*[@id='wrapper']/article[2]/div/div/div[1]/ul/li[6]")).Click();
+
+                        // 次ページの内容を保存
+                        pageSource = driver.PageSource;
+                        htmlDoc.LoadHtml(pageSource);
+
+                    }
+
+                    // 5分待ってリフレッシュ
+                    Thread.Sleep(300000);
+                    driver.Navigate().Refresh();
+                    ErrCnt = 0;
+
+                }
+                catch (Exception ex)
+                {
+                    //何もしない
+                    ErrCnt++;
+
+                    if (ErrCnt > 10) {
+                        SendDiscordOnline("システム", "エラーかメンテナンス中です１時間後に再開します。", WebHookUrlErr);
+                        Thread.Sleep(3600000);
+                        ErrCnt = 0;
+                    }
+                }
+            }
+        }
+
+        #region Discordにオンライン通知
+        /// <summary>
+        /// Discordに通知を飛ばす
+        /// </summary>
+        /// <param name="User">ユーザー名</param>
+        public static void SendDiscordOnline(string User,string Status,string WebHookURL)
+        {
+            var SendMessage = string.Empty;
+
+            if (Status == "ONLINE")
+            {
+                SendMessage = User + "さんがオンラインになりました。";
+            } else {
+                SendMessage = User + "さんがオフラインになりました。";
+            }
+
+            HttpClient httpClient = new HttpClient();
+            Dictionary<string, string> strs = new Dictionary<string, string>()
+                {
+                    { "username", "通知BOTちゃん" },
+                    { "content", SendMessage }
+                };
+            TaskAwaiter<HttpResponseMessage> awaiter = httpClient.PostAsync(WebHookURL, new
+            FormUrlEncodedContent(strs)).GetAwaiter();
+            awaiter.GetResult();
+            Thread.Sleep(500);
+        }
+        #endregion
+    }
+}
